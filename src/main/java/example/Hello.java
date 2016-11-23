@@ -9,6 +9,10 @@ import com.amazonaws.services.s3.model.S3Object;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -22,7 +26,7 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
         long testStartTime = System.currentTimeMillis();
         
         StringBuilder sb = new StringBuilder();
-        sb.append("Hello class: ").append(Hello.class.getResource("/example/Hello.class")).append("\n");
+        //sb.append("Hello class: ").append(Hello.class.getResource("/example/Hello.class")).append("\n");
         
         Path p = null;
         long s3DownloadCompleteTime = -1;
@@ -30,18 +34,32 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
             p = Files.createTempDirectory("broadsidebundle");
             InputStream is = getFromS3Url(ts.getTestCodeBundle());
             unzipTo(is, p.toFile());
-            sb.append("Unzipped OK to ").append(p.toString()).append("\n");
+            //sb.append("Unzipped OK to ").append(p.toString()).append("\n");
             s3DownloadCompleteTime = System.currentTimeMillis();
             
-            Path surefireSettings = p.resolve("surefireRun.properties");
-            Files.write(surefireSettings, ts.getSurefirePropertiesFile().getBytes());
+            File reportsFolder = p.resolve("target/surefire-reports").toFile();
+            reportsFolder.mkdirs();
+            
+            Properties props = new Properties();
+            props.load(new StringReader(ts.getSurefirePropertiesFile()));
+            props.setProperty("reportsDirectory", reportsFolder.getAbsolutePath());
+            
+            File settingsFile = p.resolve("surefireRun.properties").toFile();
+            props.store(new FileOutputStream(settingsFile), "asdf");
+            // Log back settings:
+            /*StringWriter sw = new StringWriter();
+            props.store(sw, "broadside");
+            sb.append("Using surefire settings: ").append(sw.toString()).append("\n");*/
             
             //sb.append("ps fax:").append(execReturn("ps -fax")).append("\n\n");
             
-            String[] javaCommand = {"java", "-classpath",
-                p.toString() + "/.:" + p.toString() + "/*",
-                "org.apache.maven.surefire.booter.ForkedBooter",
-                surefireSettings.toString()};
+            ArrayList<String> javaCommand = new ArrayList();
+            javaCommand.add("java");
+            javaCommand.addAll(ts.getArglineParameters());
+            javaCommand.add("-classpath");
+            javaCommand.add(p.toString() + "/.:" + p.toString() + "/*");
+            javaCommand.add("org.apache.maven.surefire.booter.ForkedBooter");
+            javaCommand.add(settingsFile.toString());
             
             sb.append("Running command: ").append(javaCommand).append("\n");
             sb.append("Command output: ").append(execReturn(javaCommand)).append("\n");
@@ -91,9 +109,9 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
         }
     }
     
-    static String execReturn(String... command) {
+    static String execReturn(List<String> command) {
         try {
-            ProcessBuilder pb = new ProcessBuilder(command);
+            ProcessBuilder pb = new ProcessBuilder(command.toArray(new String[0]));
             pb.redirectErrorStream(true);
             Process p = pb.start();
             InputStream is = p.getInputStream();

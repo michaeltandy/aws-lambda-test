@@ -44,12 +44,24 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
             props.load(new StringReader(ts.getSurefirePropertiesFile()));
             props.setProperty("reportsDirectory", reportsFolder.getAbsolutePath());
             
+            // Needed for the integration test "CheckTestNgSuiteXmlIT"
+            // (which passes XML files to the surefire booter)
+            for (Object o : props.keySet()) {
+                if (o instanceof String && ((String)o).startsWith("testSuiteXmlFiles")) {
+                    String s = (String)o;
+                    String oldValue = props.getProperty(s);
+                    String newSuffix = "suiteXml/"+new File(oldValue).getName();
+                    String newValue = p.resolve(newSuffix).toString();
+                    props.setProperty(s, newValue);
+                }
+            }
+            
             File settingsFile = p.resolve("surefireRun.properties").toFile();
             props.store(new FileOutputStream(settingsFile), "asdf");
             // Log back settings:
-            /*StringWriter sw = new StringWriter();
+            StringWriter sw = new StringWriter();
             props.store(sw, "broadside");
-            sb.append("Using surefire settings: ").append(sw.toString()).append("\n");*/
+            sb.append("Using surefire settings: ").append(sw.toString()).append("\n");
             
             //sb.append("ps fax:").append(execReturn("ps -fax")).append("\n\n");
             

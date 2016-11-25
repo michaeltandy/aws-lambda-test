@@ -74,7 +74,7 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
             javaCommand.add(settingsFile.toString());
             
             sb.append("Running command: ").append(javaCommand).append("\n");
-            sb.append("Command output: ").append(execReturn(javaCommand)).append("\n");
+            sb.append("Command output follows:\n").append(execReturn(javaCommand)).append("\n");
         
         } catch (Throwable t) {
             StringWriter sw = new StringWriter(1024);

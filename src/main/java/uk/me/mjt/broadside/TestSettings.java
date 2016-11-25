@@ -7,6 +7,7 @@ public class TestSettings {
     private String testCodeBundle;
     private String surefirePropertiesFile;
     private List<String> arglineParameters;
+    private int forkedProcessTimeoutInSeconds;
 
     public String getTestCodeBundle() {
         return testCodeBundle;
@@ -30,5 +31,13 @@ public class TestSettings {
 
     public void setArglineParameters(List<String> arglineParameters) {
         this.arglineParameters = arglineParameters;
+    }
+
+    public int getForkedProcessTimeoutInSeconds() {
+        return forkedProcessTimeoutInSeconds;
+    }
+
+    public void setForkedProcessTimeoutInSeconds(int forkedProcessTimeoutInSeconds) {
+        this.forkedProcessTimeoutInSeconds = forkedProcessTimeoutInSeconds;
     }
 }

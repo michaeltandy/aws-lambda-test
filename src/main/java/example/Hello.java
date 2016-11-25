@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -74,7 +76,11 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
             javaCommand.add(settingsFile.toString());
             
             sb.append("Running command: ").append(javaCommand).append("\n");
-            sb.append("Command output follows:\n").append(execReturn(javaCommand)).append("\n");
+            
+            long runTimeMillis = Math.min(context.getRemainingTimeInMillis()-50,
+                    1000 * ts.getForkedProcessTimeoutInSeconds());
+            sb.append("Timeout is in ").append(runTimeMillis).append(" ms. ");
+            sb.append("Command output follows:\n").append(execReturn(javaCommand, runTimeMillis)).append("\n");
         
         } catch (Throwable t) {
             StringWriter sw = new StringWriter(1024);
@@ -121,11 +127,15 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
         }
     }
     
-    static String execReturn(List<String> command) {
+    static String execReturn(List<String> command, long timeoutMillis) {
         try {
             ProcessBuilder pb = new ProcessBuilder(command.toArray(new String[0]));
             pb.redirectErrorStream(true);
-            Process p = pb.start();
+            final Process p = pb.start();
+            
+            Timer t = new Timer("Subprocess kill timer");
+            t.schedule(new ProcessKillTimer(p), timeoutMillis);
+            
             InputStream is = p.getInputStream();
             String result = convertStreamToString(is).trim();
             return result;
@@ -153,6 +163,37 @@ public class Hello implements RequestHandler<TestSettings, TestResult> {
                 new GetObjectRequest(m.group(1), m.group(2)));
         InputStream objectData = object.getObjectContent();
         return objectData;
+    }
+    
+    private static class ProcessKillTimer extends TimerTask {
+        private final Process p;
+        ProcessKillTimer(Process p) {
+            this.p = p;
+        }
+
+        @Override
+        public void run() {
+            p.destroy(); // TODO log when this happens.
+            
+            // Below is what surefire does - but AFAIK it doesn't produce any
+            // stdout output or similar beyond what you get with p.destroy()
+            
+            /*try {
+                OutputStream os = p.getOutputStream();
+                byte[] commandPrefix = { 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04 };
+                
+                os.write(commandPrefix);
+                os.write("KILL".getBytes());
+                os.flush();
+                os.write(commandPrefix);
+                os.write("KILL".getBytes());
+                os.close();
+
+            } catch (IOException e) {
+                
+            }
+        }*/
+        
     }
     
 }
